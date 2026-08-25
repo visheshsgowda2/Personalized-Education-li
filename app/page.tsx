@@ -1,29 +1,65 @@
-"use client"
+"use client";
 
-import { useChat } from "ai/react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Send, Star, Users, ExternalLink, GraduationCap, Search, AlertCircle } from "lucide-react"
+import { useState } from "react";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Send,
+  Star,
+  Users,
+  ExternalLink,
+  GraduationCap,
+  Search,
+  AlertCircle,
+} from "lucide-react";
 
 export default function PersonalizedEducationChat() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat()
+  const [input, setInput] = useState("");
+  const { messages, sendMessage, status } = useChat({
+    transport: new DefaultChatTransport({ api: "/api/chat" }),
+  });
+  const isLoading = status === "submitted" || status === "streaming";
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!input.trim() || isLoading) return;
+    void sendMessage({ text: input });
+    setInput("");
+  };
 
   const renderMessage = (message: any) => {
+    const toolParts =
+      message.parts?.filter(
+        (part: any) => part.type === "tool-searchCourses" && part.output,
+      ) ?? [];
+
     // Handle tool calls and their results
-    if (message.toolInvocations) {
+    if (toolParts.length > 0) {
       return (
         <div className="space-y-4">
-          {message.toolInvocations.map((toolInvocation: any, index: number) => {
-            if (toolInvocation.toolName === "searchCourses" && toolInvocation.result) {
-              const { topic, level, courses, totalFound, searchPerformed, error } = toolInvocation.result
+          {toolParts.map((toolPart: any, index: number) => {
+            if (toolPart.output) {
+              const {
+                topic,
+                level,
+                courses,
+                totalFound,
+                searchPerformed,
+                error,
+              } = toolPart.output;
               return (
                 <div key={index} className="space-y-4">
                   <div className="bg-orange-100 border border-orange-200 rounded-lg p-4">
                     <h3 className="font-semibold text-orange-900 flex items-center gap-2 mb-2">
                       <Search className="w-5 h-5" />
-                      {searchPerformed ? "Found" : "Search Limited - Showing"} {totalFound} courses for "{topic}"
+                      {searchPerformed
+                        ? "Found"
+                        : "Search Limited - Showing"}{" "}
+                      {totalFound} courses for "{topic}"
                       {level !== "all" && ` (${level} level)`}
                     </h3>
                     {error && (
@@ -36,10 +72,15 @@ export default function PersonalizedEducationChat() {
 
                   <div className="grid gap-4">
                     {courses.map((course: any, courseIndex: number) => (
-                      <Card key={courseIndex} className="border-orange-200 hover:shadow-md transition-shadow">
+                      <Card
+                        key={courseIndex}
+                        className="border-orange-200 hover:shadow-md transition-shadow"
+                      >
                         <CardContent className="p-4">
                           <div className="flex justify-between items-start mb-2">
-                            <h4 className="font-semibold text-gray-800 flex-1 pr-2">{course.title}</h4>
+                            <h4 className="font-semibold text-gray-800 flex-1 pr-2">
+                              {course.title}
+                            </h4>
                             <Badge
                               variant="secondary"
                               className={`ml-2 ${
@@ -54,7 +95,9 @@ export default function PersonalizedEducationChat() {
                             </Badge>
                           </div>
 
-                          <p className="text-gray-600 text-sm mb-3">{course.description}</p>
+                          <p className="text-gray-600 text-sm mb-3">
+                            {course.description}
+                          </p>
 
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4 text-sm text-gray-500">
@@ -66,7 +109,9 @@ export default function PersonalizedEducationChat() {
                                 <Users className="w-4 h-4" />
                                 {course.students.toLocaleString()} students
                               </span>
-                              <span className="text-orange-600 font-medium">{course.provider}</span>
+                              <span className="text-orange-600 font-medium">
+                                {course.provider}
+                              </span>
                             </div>
 
                             <a
@@ -84,17 +129,22 @@ export default function PersonalizedEducationChat() {
                     ))}
                   </div>
                 </div>
-              )
+              );
             }
-            return null
+            return null;
           })}
         </div>
-      )
+      );
     }
 
     // Handle regular text content
-    return <p className="text-gray-700 whitespace-pre-wrap">{message.content}</p>
-  }
+    const text = message.parts
+      ?.filter((part: any) => part.type === "text")
+      .map((part: any) => part.text)
+      .join("");
+
+    return <p className="text-gray-700 whitespace-pre-wrap">{text}</p>;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50">
@@ -106,11 +156,14 @@ export default function PersonalizedEducationChat() {
               <div className="bg-orange-500 p-3 rounded-full">
                 <GraduationCap className="w-8 h-8 text-white" />
               </div>
-              <h1 className="text-3xl font-bold text-gray-800">Personalized Education</h1>
+              <h1 className="text-3xl font-bold text-gray-800">
+                Personalized Education
+              </h1>
             </div>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Your AI-powered learning companion with real-time web search. Ask me about any topic and I'll find actual
-              courses from top platforms!
+              Your AI-powered learning companion with real-time web search. Ask
+              me about any topic and I'll find actual courses from top
+              platforms!
             </p>
           </div>
 
@@ -131,21 +184,36 @@ export default function PersonalizedEducationChat() {
                     <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Search className="w-8 h-8 text-orange-600" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">Ready to Learn ?</h3>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                      Ready to Learn ?
+                    </h3>
                     <p className="text-gray-600 mb-6">
-                      I'll search the web to find actual courses from top platforms like Udemy, Coursera, and edX!
+                      I'll search the web to find actual courses from top
+                      platforms like Udemy, Coursera, and edX!
                     </p>
                     <div className="flex flex-wrap gap-2 justify-center">
-                      <Badge variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200">
+                      <Badge
+                        variant="secondary"
+                        className="bg-orange-100 text-orange-700 hover:bg-orange-200"
+                      >
                         "Find React courses"
                       </Badge>
-                      <Badge variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200">
+                      <Badge
+                        variant="secondary"
+                        className="bg-orange-100 text-orange-700 hover:bg-orange-200"
+                      >
                         "Python for beginners"
                       </Badge>
-                      <Badge variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200">
+                      <Badge
+                        variant="secondary"
+                        className="bg-orange-100 text-orange-700 hover:bg-orange-200"
+                      >
                         "Advanced data science"
                       </Badge>
-                      <Badge variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200">
+                      <Badge
+                        variant="secondary"
+                        className="bg-orange-100 text-orange-700 hover:bg-orange-200"
+                      >
                         "Digital marketing courses"
                       </Badge>
                     </div>
@@ -153,7 +221,10 @@ export default function PersonalizedEducationChat() {
                 )}
 
                 {messages.map((message) => (
-                  <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div
+                    key={message.id}
+                    className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                  >
                     <div
                       className={`max-w-[80%] rounded-lg px-4 py-3 ${
                         message.role === "user"
@@ -162,7 +233,12 @@ export default function PersonalizedEducationChat() {
                       }`}
                     >
                       {message.role === "user" ? (
-                        <p className="text-white">{message.content}</p>
+                        <p className="text-white">
+                          {message.parts
+                            ?.filter((part: any) => part.type === "text")
+                            .map((part: any) => part.text)
+                            .join("")}
+                        </p>
                       ) : (
                         renderMessage(message)
                       )}
@@ -185,7 +261,9 @@ export default function PersonalizedEducationChat() {
                             style={{ animationDelay: "0.2s" }}
                           ></div>
                         </div>
-                        <span className="text-gray-600 text-sm">Searching the web for courses...</span>
+                        <span className="text-gray-600 text-sm">
+                          Searching the web for courses...
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -197,7 +275,7 @@ export default function PersonalizedEducationChat() {
                 <form onSubmit={handleSubmit} className="flex gap-3">
                   <Input
                     value={input}
-                    onChange={handleInputChange}
+                    onChange={(event) => setInput(event.target.value)}
                     placeholder="What would you like to learn? (e.g., 'Find me Python courses for beginners')"
                     className="flex-1 border-orange-300 focus:border-orange-500 focus:ring-orange-500"
                     disabled={isLoading}
@@ -221,9 +299,12 @@ export default function PersonalizedEducationChat() {
                 <div className="bg-orange-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Search className="w-6 h-6 text-orange-600" />
                 </div>
-                <h3 className="font-semibold text-gray-800 mb-2">Real-Time Search</h3>
+                <h3 className="font-semibold text-gray-800 mb-2">
+                  Real-Time Search
+                </h3>
                 <p className="text-gray-600 text-sm">
-                  Live web search to find the latest courses from top educational platforms.
+                  Live web search to find the latest courses from top
+                  educational platforms.
                 </p>
               </CardContent>
             </Card>
@@ -233,9 +314,12 @@ export default function PersonalizedEducationChat() {
                 <div className="bg-orange-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
                   <ExternalLink className="w-6 h-6 text-orange-600" />
                 </div>
-                <h3 className="font-semibold text-gray-800 mb-2">Working Links</h3>
+                <h3 className="font-semibold text-gray-800 mb-2">
+                  Working Links
+                </h3>
                 <p className="text-gray-600 text-sm">
-                  All course links are real and lead directly to the actual course pages.
+                  All course links are real and lead directly to the actual
+                  course pages.
                 </p>
               </CardContent>
             </Card>
@@ -245,9 +329,12 @@ export default function PersonalizedEducationChat() {
                 <div className="bg-orange-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
                   <GraduationCap className="w-6 h-6 text-orange-600" />
                 </div>
-                <h3 className="font-semibold text-gray-800 mb-2">Top Platforms</h3>
+                <h3 className="font-semibold text-gray-800 mb-2">
+                  Top Platforms
+                </h3>
                 <p className="text-gray-600 text-sm">
-                  Searches across Udemy, Coursera, edX, Pluralsight, and other leading platforms.
+                  Searches across Udemy, Coursera, edX, Pluralsight, and other
+                  leading platforms.
                 </p>
               </CardContent>
             </Card>
@@ -255,5 +342,5 @@ export default function PersonalizedEducationChat() {
         </div>
       </div>
     </div>
-  )
+  );
 }

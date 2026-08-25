@@ -1,5 +1,5 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google"
-import { streamText, tool } from "ai"
+import { convertToModelMessages, streamText, tool } from "ai"
 import { z } from "zod"
 
 export const maxDuration = 30
@@ -115,8 +115,8 @@ export async function POST(req: Request) {
   const { messages } = await req.json()
 
   const result = streamText({
-    model: google("gemini-1.5-flash"),
-    messages,
+    model: google("gemini-3.5-flash"),
+    messages: await convertToModelMessages(messages),
     system: `You are an educational assistant that helps users find relevant courses and learning resources. 
     When users ask about learning topics, use the search tool to find real courses from popular platforms.
     Always be encouraging and provide detailed explanations about why certain courses might be beneficial.
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
     tools: {
       searchCourses: tool({
         description: "Search for real educational courses on a specific topic using web search",
-        parameters: z.object({
+        inputSchema: z.object({
           topic: z.string().describe("The topic or subject to search courses for"),
           level: z.enum(["beginner", "intermediate", "advanced", "all"]).describe("The difficulty level"),
         }),
@@ -200,5 +200,5 @@ export async function POST(req: Request) {
     },
   })
 
-  return result.toDataStreamResponse()
+  return result.toUIMessageStreamResponse()
 }
